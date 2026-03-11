@@ -4,6 +4,27 @@ An internal PyPI index for GDS IDEA packages, hosted on GitHub Pages.
 
 **Index URL:** `https://co-cddo.github.io/gds-idea-pypi/simple/`
 
+**Latest versions and full install docs:** `https://co-cddo.github.io/gds-idea-pypi/`
+
+## One-time developer setup
+
+Add the index to your global uv config so `--index gds-idea` works in any project without looking up the URL each time. Add this to `~/.config/uv/uv.toml` (macOS/Linux) or `%APPDATA%\uv\uv.toml` (Windows):
+
+```toml
+[[index]]
+name = "gds-idea"
+url = "https://co-cddo.github.io/gds-idea-pypi/simple/"
+explicit = true
+```
+
+Once done, adding any internal package to any project is just:
+
+```bash
+uv add gds-idea-app-kit --index gds-idea
+```
+
+uv will still write the full `[[tool.uv.index]]` entry into the project's `pyproject.toml` so the project is self-contained for CI and other team members.
+
 ## Installing packages
 
 The key benefit of this index over pinning to git tags is **version constraints** — you can now use `>=`, `~=`, and ranges instead of locking to a specific commit or tag:
