@@ -6,28 +6,46 @@ An internal PyPI index for GDS IDEA packages, hosted on GitHub Pages.
 
 ## Installing packages
 
-Add the index to your project's `pyproject.toml`:
+The key benefit of this index over pinning to git tags is **version constraints** — you can now use `>=`, `~=`, and ranges instead of locking to a specific commit or tag:
 
-```toml
-[[tool.uv.index]]
-name = "cddo"
-url = "https://co-cddo.github.io/gds-idea-pypi/simple/"
+```bash
+# Before: locked to an exact git tag
+uv add "gds-idea-app-kit @ git+https://github.com/co-cddo/gds-idea-app-kit@v0.2.6"
+
+# Now: version constraints, resolved from the index
+uv add gds-idea-app-kit --index cddo=https://co-cddo.github.io/gds-idea-pypi/simple/
 ```
 
-Then add packages as normal dependencies:
+This adds the package to your `pyproject.toml` and automatically sets up the index and source pin:
 
 ```toml
 [project]
 dependencies = [
-    "gds-idea-app-kit>=0.2.0",
-    "cognito-auth>=0.3.0",
+    "gds-idea-app-kit>=0.2.7",
 ]
+
+[tool.uv.sources]
+gds-idea-app-kit = { index = "cddo" }
+
+[[tool.uv.index]]
+name = "cddo"
+url = "https://co-cddo.github.io/gds-idea-pypi/simple/"
+explicit = true  # only used for packages explicitly pinned above; PyPI is unchanged
 ```
 
-Or install directly with uv:
+Once the index is in your `pyproject.toml`, adding more internal packages is just:
 
 ```bash
-uv pip install --extra-index-url https://co-cddo.github.io/gds-idea-pypi/simple/ gds-idea-app-kit
+uv add cognito-auth --index cddo
+uv add llmbo-bedrock --index cddo
+```
+
+You can adjust the version constraint to whatever you need:
+
+```toml
+"gds-idea-app-kit>=0.2.0"   # any version from 0.2.0 onwards
+"gds-idea-app-kit~=0.2.0"   # compatible release: >=0.2.0, <0.3.0
+"gds-idea-app-kit>=0.2,<1"  # range
 ```
 
 ## Packages available
