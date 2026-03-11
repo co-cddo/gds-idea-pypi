@@ -13,7 +13,7 @@ The key benefit of this index over pinning to git tags is **version constraints*
 uv add "gds-idea-app-kit @ git+https://github.com/co-cddo/gds-idea-app-kit@v0.2.6"
 
 # Now: version constraints, resolved from the index
-uv add gds-idea-app-kit --index cddo=https://co-cddo.github.io/gds-idea-pypi/simple/
+uv add gds-idea-app-kit --index gds-idea=https://co-cddo.github.io/gds-idea-pypi/simple/
 ```
 
 This adds the package to your `pyproject.toml` and automatically sets up the index and source pin:
@@ -25,10 +25,10 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-gds-idea-app-kit = { index = "cddo" }
+gds-idea-app-kit = { index = "gds-idea" }
 
 [[tool.uv.index]]
-name = "cddo"
+name = "gds-idea"
 url = "https://co-cddo.github.io/gds-idea-pypi/simple/"
 explicit = true  # only used for packages explicitly pinned above; PyPI is unchanged
 ```
@@ -36,8 +36,8 @@ explicit = true  # only used for packages explicitly pinned above; PyPI is uncha
 Once the index is in your `pyproject.toml`, adding more internal packages is just:
 
 ```bash
-uv add cognito-auth --index cddo
-uv add llmbo-bedrock --index cddo
+uv add cognito-auth --index gds-idea
+uv add llmbo-bedrock --index gds-idea
 ```
 
 You can adjust the version constraint to whatever you need:
