@@ -6,23 +6,26 @@ An internal PyPI index for GDS IDEA packages, hosted on GitHub Pages.
 
 ## Installing packages
 
-Add the index to your project's `pyproject.toml`:
+Add the index to your project's `pyproject.toml`, and pin each internal package to it via `tool.uv.sources`:
 
 ```toml
 [[tool.uv.index]]
 name = "cddo"
 url = "https://co-cddo.github.io/gds-idea-pypi/simple/"
-```
+explicit = true  # only used for packages explicitly pinned below
 
-Then add packages as normal dependencies:
+[tool.uv.sources]
+gds-idea-app-kit = { index = "cddo" }
+cognito-auth = { index = "cddo" }
 
-```toml
 [project]
 dependencies = [
     "gds-idea-app-kit>=0.2.0",
     "cognito-auth>=0.3.0",
 ]
 ```
+
+Using `explicit = true` means uv will **only** look at this index for packages pinned to it. Everything else (dependencies of your dependencies, etc.) is resolved from PyPI as normal. Without it, uv's default behaviour would prevent any package found in this index from ever being resolved from PyPI, even if a newer version existed there.
 
 Or install directly with uv:
 
