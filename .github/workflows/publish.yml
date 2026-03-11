@@ -1,6 +1,10 @@
 name: Rebuild PyPI Index
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - config.toml
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch: {}
