@@ -226,6 +226,19 @@ uv tool install gds-idea-app-kit --index gds-idea
 
 # Version constraints work here too
 uv tool install "gds-idea-app-kit&gt;=0.2.7" --index gds-idea</code></pre>
+    <p>To update an already-installed tool to the latest version:</p>
+    <pre><code># Upgrade one tool
+uv tool upgrade gds-idea-app-kit
+
+# Or upgrade everything at once
+uv tool upgrade --all</code></pre>
+    <p>
+      If you previously installed a tool from a git URL (e.g.
+      <code>git+https://github.com/...</code>), reinstall it from the index with
+      <code>--force-reinstall</code> to switch the source:
+    </p>
+    <pre><code>uv tool install gds-idea-app-kit --index gds-idea --force-reinstall</code></pre>
+    <p>After that, <code>uv tool upgrade</code> will work correctly going forward.</p>
 
     <h2>One-time developer setup (optional)</h2>
     <p>
