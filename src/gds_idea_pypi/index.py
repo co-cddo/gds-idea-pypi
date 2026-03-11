@@ -213,6 +213,20 @@ uv add llmbo-bedrock --index gds-idea</code></pre>
 "gds-idea-app-kit~=0.2.0"   # compatible release: &gt;=0.2.0, &lt;0.3.0
 "gds-idea-app-kit&gt;=0.2,&lt;1"  # range</code></pre>
 
+    <h2>Installing tools</h2>
+    <p>
+      For packages that provide a CLI (like <code>gds-idea-app-kit</code>), you can install them
+      as global tools with <code>uv tool install</code> — equivalent to <code>pipx</code>:
+    </p>
+    <pre><code># First time — include the full index URL if you haven't done the one-time setup below
+uv tool install gds-idea-app-kit --index gds-idea={INDEX_URL}
+
+# After one-time setup, just:
+uv tool install gds-idea-app-kit --index gds-idea
+
+# Version constraints work here too
+uv tool install "gds-idea-app-kit&gt;=0.2.7" --index gds-idea</code></pre>
+
     <h2>One-time developer setup (optional)</h2>
     <p>
       Add the index to your global uv config so <code>--index gds-idea</code> works in any
@@ -224,6 +238,12 @@ uv add llmbo-bedrock --index gds-idea</code></pre>
 name = "gds-idea"
 url = "{INDEX_URL}"
 explicit = true</code></pre>
+    <p>Once done, adding or installing any internal package is just:</p>
+    <pre><code># Add to a project
+uv add gds-idea-app-kit --index gds-idea
+
+# Install as a global tool
+uv tool install gds-idea-app-kit --index gds-idea</code></pre>
 
     <h2>Adding a new package to this index</h2>
     <h3>1. Add the repo to <code>config.toml</code></h3>

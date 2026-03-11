@@ -23,6 +23,12 @@ Once done, adding any internal package to any project is just:
 uv add gds-idea-app-kit --index gds-idea
 ```
 
+Or installing a package as a global CLI tool:
+
+```bash
+uv tool install gds-idea-app-kit --index gds-idea
+```
+
 uv will still write the full `[[tool.uv.index]]` entry into the project's `pyproject.toml` so the project is self-contained for CI and other team members.
 
 ## Installing packages
@@ -67,6 +73,21 @@ You can adjust the version constraint to whatever you need:
 "gds-idea-app-kit>=0.2.0"   # any version from 0.2.0 onwards
 "gds-idea-app-kit~=0.2.0"   # compatible release: >=0.2.0, <0.3.0
 "gds-idea-app-kit>=0.2,<1"  # range
+```
+
+## Installing tools
+
+For packages that provide a CLI (like `gds-idea-app-kit`), you can install them as global tools with `uv tool install` — equivalent to `pipx`:
+
+```bash
+# First time — include the full index URL if you haven't done the one-time setup above
+uv tool install gds-idea-app-kit --index gds-idea=https://co-cddo.github.io/gds-idea-pypi/simple/
+
+# After one-time setup, just:
+uv tool install gds-idea-app-kit --index gds-idea
+
+# Version constraints work here too
+uv tool install "gds-idea-app-kit>=0.2.7" --index gds-idea
 ```
 
 ## Packages available
