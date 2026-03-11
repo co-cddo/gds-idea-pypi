@@ -13,3 +13,6 @@ repo = "gds-idea-llmbo"
 
 [[packages]]
 repo = "gds-idea-box2.0"
+
+[[packages]]
+repo = "gds-idea-gh-kit"
