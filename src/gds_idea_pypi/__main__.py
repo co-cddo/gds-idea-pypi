@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .config import load_config
 from .github import get_releases, make_client
-from .index import generate_index
+from .index import generate_index, generate_landing_page
 
 logger = logging.getLogger("gds_idea_pypi")
 
@@ -112,7 +112,9 @@ def main() -> None:
 
     # Generate index
     generate_index(all_packages, args.output)
+    generate_landing_page(all_packages, args.output)
     logger.info("Index written to %s/simple/", args.output)
+    logger.info("Landing page written to %s/index.html", args.output)
 
 
 if __name__ == "__main__":
