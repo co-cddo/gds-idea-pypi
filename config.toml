@@ -1,0 +1,15 @@
+[index]
+org = "co-cddo"
+base_url = "https://co-cddo.github.io/gds-idea-pypi/simple"
+
+[[packages]]
+repo = "gds-idea-app-auth"
+
+[[packages]]
+repo = "gds-idea-app-kit"
+
+[[packages]]
+repo = "gds-idea-llmbo"
+
+[[packages]]
+repo = "gds-idea-box2.0"

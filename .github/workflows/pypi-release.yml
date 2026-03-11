@@ -1,0 +1,57 @@
+# Reusable workflow for package repos.
+#
+# Add this to your package repo's release workflow:
+#
+#   jobs:
+#     publish:
+#       uses: co-cddo/gds-idea-pypi/.github/workflows/pypi-release.yml@main
+#       secrets: inherit
+#
+# Prerequisites:
+#   - Your repo must have a pyproject.toml with a [build-system] section.
+#   - The workflow is triggered by a published release (tag push + release creation).
+#   - To trigger the index rebuild, set an org-level secret called
+#     PYPI_INDEX_TOKEN (a PAT with `repo` scope on co-cddo/gds-idea-pypi),
+#     or set it as a repo-level secret.
+
+name: Build & Publish to PyPI Index
+
+on:
+  workflow_call:
+    secrets:
+      PYPI_INDEX_TOKEN:
+        description: "PAT with repo scope on co-cddo/gds-idea-pypi (for triggering index rebuild)"
+        required: false
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed for gh release upload
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build
+        run: pip install build
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Upload artifacts to GitHub Release
+        run: gh release upload "${{ github.ref_name }}" dist/*.whl dist/*.tar.gz --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger PyPI index rebuild
+        if: secrets.PYPI_INDEX_TOKEN != ''
+        run: |
+          gh api repos/co-cddo/gds-idea-pypi/dispatches \
+            -f event_type=rebuild-index \
+            -f "client_payload[repo]=${{ github.repository }}" \
+            -f "client_payload[tag]=${{ github.ref_name }}"
+        env:
+          GH_TOKEN: ${{ secrets.PYPI_INDEX_TOKEN }}
