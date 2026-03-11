@@ -2,108 +2,15 @@
 
 An internal PyPI index for GDS IDEA packages, hosted on GitHub Pages.
 
-**Index URL:** `https://co-cddo.github.io/gds-idea-pypi/simple/`
-
-**Latest versions and full install docs:** `https://co-cddo.github.io/gds-idea-pypi/`
-
-## One-time developer setup
-
-Add the index to your global uv config so `--index gds-idea` works in any project without looking up the URL each time. Add this to `~/.config/uv/uv.toml` (macOS/Linux) or `%APPDATA%\uv\uv.toml` (Windows):
-
-```toml
-[[index]]
-name = "gds-idea"
-url = "https://co-cddo.github.io/gds-idea-pypi/simple/"
-explicit = true
-```
-
-Once done, adding any internal package to any project is just:
-
-```bash
-uv add gds-idea-app-kit --index gds-idea
-```
-
-Or installing a package as a global CLI tool:
-
-```bash
-uv tool install gds-idea-app-kit --index gds-idea
-```
-
-uv will still write the full `[[tool.uv.index]]` entry into the project's `pyproject.toml` so the project is self-contained for CI and other team members.
-
-## Installing packages
-
-The key benefit of this index over pinning to git tags is **version constraints** — you can now use `>=`, `~=`, and ranges instead of locking to a specific commit or tag:
-
-```bash
-# Before: locked to an exact git tag
-uv add "gds-idea-app-kit @ git+https://github.com/co-cddo/gds-idea-app-kit@v0.2.6"
-
-# Now: version constraints, resolved from the index
-uv add gds-idea-app-kit --index gds-idea=https://co-cddo.github.io/gds-idea-pypi/simple/
-```
-
-This adds the package to your `pyproject.toml` and automatically sets up the index and source pin:
-
-```toml
-[project]
-dependencies = [
-    "gds-idea-app-kit>=0.2.7",
-]
-
-[tool.uv.sources]
-gds-idea-app-kit = { index = "gds-idea" }
-
-[[tool.uv.index]]
-name = "gds-idea"
-url = "https://co-cddo.github.io/gds-idea-pypi/simple/"
-explicit = true  # only used for packages explicitly pinned above; PyPI is unchanged
-```
-
-Once the index is in your `pyproject.toml`, adding more internal packages is just:
-
-```bash
-uv add cognito-auth --index gds-idea
-uv add llmbo-bedrock --index gds-idea
-```
-
-You can adjust the version constraint to whatever you need:
-
-```toml
-"gds-idea-app-kit>=0.2.0"   # any version from 0.2.0 onwards
-"gds-idea-app-kit~=0.2.0"   # compatible release: >=0.2.0, <0.3.0
-"gds-idea-app-kit>=0.2,<1"  # range
-```
-
-## Installing tools
-
-For packages that provide a CLI (like `gds-idea-app-kit`), you can install them as global tools with `uv tool install` — equivalent to `pipx`:
-
-```bash
-# First time — include the full index URL if you haven't done the one-time setup above
-uv tool install gds-idea-app-kit --index gds-idea=https://co-cddo.github.io/gds-idea-pypi/simple/
-
-# After one-time setup, just:
-uv tool install gds-idea-app-kit --index gds-idea
-
-# Version constraints work here too
-uv tool install "gds-idea-app-kit>=0.2.7" --index gds-idea
-```
-
-## Packages available
-
-| Package | Repo |
-|---|---|
-| `gds-idea-app-kit` | [co-cddo/gds-idea-app-kit](https://github.com/co-cddo/gds-idea-app-kit) |
-| `cognito-auth` | [co-cddo/gds-idea-app-auth](https://github.com/co-cddo/gds-idea-app-auth) |
-| `llmbo-bedrock` | [co-cddo/gds-idea-llmbo](https://github.com/co-cddo/gds-idea-llmbo) |
-| `gds-idea-box2-0` | [co-cddo/gds-idea-box2.0](https://github.com/co-cddo/gds-idea-box2.0) |
+- **[Latest versions, install instructions & developer setup](https://co-cddo.github.io/gds-idea-pypi/)** — start here
+- **Index URL:** `https://co-cddo.github.io/gds-idea-pypi/simple/`
+- **[Rebuild PyPI Index workflow](https://github.com/co-cddo/gds-idea-pypi/actions/workflows/publish.yml)** — trigger a manual rebuild
 
 ## Adding a new package
 
 ### 1. Add the repo to `config.toml`
 
-Open `config.toml` in this repo and add an entry:
+Open [`config.toml`](config.toml) in this repo and add an entry:
 
 ```toml
 [[packages]]
