@@ -229,7 +229,7 @@ uv add "gds-idea-app-kit&gt;=0.2,&lt;1" --index gds-idea  # explicit range</code
     </p>
 
     <h3>One-time shell setup</h3>
-    <p>Add this function to your <code>~/.zshrc</code> or <code>~/.bashrc</code>, then restart your shell or run <code>source ~/.zshrc</code>:</p>
+    <p>Add this function to your <code>~/.zshrc</code> or <code>~/.bashrc</code>, then open a new terminal window (or run <code>source ~/.zshrc</code> to apply it in your current one):</p>
     <pre><code>idea-tools() {{
   local cmd="$1"; shift
   case "$cmd" in
