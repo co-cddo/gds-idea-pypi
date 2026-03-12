@@ -178,135 +178,97 @@ def generate_landing_page(
       </tbody>
     </table>
 
-    <h2>Installing packages</h2>
+    <h2>Using packages in a project</h2>
     <p>
-      The key benefit of this index over pinning to git tags is <strong>version constraints</strong>
-      — you can now use <code>&gt;=</code>, <code>~=</code>, and ranges instead of locking to a
-      specific commit or tag:
+      This index uses <code>explicit = true</code>, meaning packages are only fetched from it when
+      you say so — PyPI is unaffected. The key benefit over git URL pins is
+      <strong>version constraints</strong>: you can use <code>&gt;=</code>, <code>~=</code>, and
+      ranges instead of locking to a specific tag.
     </p>
-    <pre><code># Before: locked to an exact git tag
-uv add "gds-idea-app-kit @ git+https://github.com/{ORG}/gds-idea-app-kit@v0.2.6"
 
-# Now: version constraints, resolved from the index
-uv add gds-idea-app-kit --index gds-idea={INDEX_URL}</code></pre>
+    <h3>If your project was scaffolded with <code>idea-app</code></h3>
     <p>
-      This adds the package to your <code>pyproject.toml</code> and automatically sets up the
-      index and source pin:
+      The index is already configured in your <code>pyproject.toml</code>. Just add packages by
+      name:
     </p>
-    <pre><code>[project]
-dependencies = [
-    "gds-idea-app-kit&gt;=0.2.7",
-]
+    <pre><code>uv add gds-idea-app-kit --index gds-idea
+uv add gds-idea-auth --index gds-idea</code></pre>
 
-[tool.uv.sources]
+    <h3>Adding the index to an existing project</h3>
+    <p>
+      Pass the full URL the first time you add an internal package. uv will write the index
+      definition and source pin into your <code>pyproject.toml</code> automatically:
+    </p>
+    <pre><code>uv add gds-idea-app-kit --index gds-idea={INDEX_URL}</code></pre>
+    <p>Your <code>pyproject.toml</code> will gain:</p>
+    <pre><code>[tool.uv.sources]
 gds-idea-app-kit = {{ index = "gds-idea" }}
 
 [[tool.uv.index]]
 name = "gds-idea"
 url = "{INDEX_URL}"
-explicit = true  # only used for packages explicitly pinned above; PyPI is unchanged</code></pre>
-    <p>Once the index is in your <code>pyproject.toml</code>, adding more internal packages is just:</p>
-    <pre><code>uv add cognito-auth --index gds-idea
-uv add llmbo-bedrock --index gds-idea</code></pre>
-    <p>You can adjust the version constraint to whatever you need:</p>
-    <pre><code>"gds-idea-app-kit&gt;=0.2.0"   # any version from 0.2.0 onwards
-"gds-idea-app-kit~=0.2.0"   # compatible release: &gt;=0.2.0, &lt;0.3.0
-"gds-idea-app-kit&gt;=0.2,&lt;1"  # range</code></pre>
+explicit = true  # only used for packages explicitly listed above; PyPI is unchanged</code></pre>
+    <p>After that, any further internal packages only need the index name:</p>
+    <pre><code>uv add gds-idea-auth --index gds-idea</code></pre>
 
-    <h2>Installing tools</h2>
+    <h3>Version constraints</h3>
+    <pre><code>uv add "gds-idea-app-kit&gt;=0.2.0" --index gds-idea   # any version from 0.2.0 onwards
+uv add "gds-idea-app-kit~=0.2.0" --index gds-idea   # compatible: &gt;=0.2.0, &lt;0.3.0
+uv add "gds-idea-app-kit&gt;=0.2,&lt;1" --index gds-idea  # explicit range</code></pre>
+
+    <h2>Using CLI tools</h2>
     <p>
-      For packages that provide a CLI (like <code>gds-idea-app-kit</code>), you can install them
-      as global tools with <code>uv tool install</code> — equivalent to <code>pipx</code>:
-    </p>
-    <pre><code># First time — include the full index URL if you haven't done the one-time setup below
-uv tool install gds-idea-app-kit --index gds-idea={INDEX_URL}
-
-# After one-time setup, just:
-uv tool install gds-idea-app-kit --index gds-idea
-
-# Version constraints work here too
-uv tool install "gds-idea-app-kit&gt;=0.2.7" --index gds-idea</code></pre>
-    <p>To update an already-installed tool to the latest version:</p>
-    <pre><code># Upgrade one tool
-uv tool upgrade gds-idea-app-kit
-
-# Or upgrade everything at once
-uv tool upgrade --all</code></pre>
-    <p>
-      If you previously installed a tool from a git URL (e.g.
-      <code>git+https://github.com/...</code>), reinstall it from the index with
-      <code>--force-reinstall</code> to switch the source:
-    </p>
-    <pre><code>uv tool install gds-idea-app-kit --index gds-idea --force-reinstall</code></pre>
-    <p>After that, <code>uv tool upgrade</code> will work correctly going forward.</p>
-
-    <h2>One-time developer setup (optional)</h2>
-    <p>
-      Add the index to your global uv config so <code>--index gds-idea</code> works in any
-      project without bootstrapping it first. Add this to
-      <code>~/.config/uv/uv.toml</code> (macOS/Linux) or
-      <code>%APPDATA%\\uv\\uv.toml</code> (Windows):
-    </p>
-    <pre><code>[[index]]
-name = "gds-idea"
-url = "{INDEX_URL}"
-explicit = true</code></pre>
-    <p>Once done, adding or installing any internal package is just:</p>
-    <pre><code># Add to a project
-uv add gds-idea-app-kit --index gds-idea
-
-# Install as a global tool
-uv tool install gds-idea-app-kit --index gds-idea</code></pre>
-
-    <h2>Adding a new package to this index</h2>
-    <h3>1. Add the repo to <code>config.toml</code></h3>
-    <p>Open <a href="https://github.com/{ORG}/gds-idea-pypi/blob/main/config.toml"><code>config.toml</code></a> in this repo and add an entry:</p>
-    <pre><code>[[packages]]
-repo = "your-new-repo-name"</code></pre>
-    <p>Merge the change to <code>main</code> — the index will pick it up on the next scheduled rebuild.</p>
-
-    <h3>2. Set up wheel builds in the package repo</h3>
-    <p>
-      The index links directly to release assets, so the package repo needs to attach a wheel to
-      each GitHub Release. Add these steps to the repo's release workflow
-      (<code>.github/workflows/release.yml</code>):
-    </p>
-    <pre><code>      - uses: astral-sh/setup-uv@v7
-
-      - name: Build wheel and sdist
-        run: uv build
-
-      - name: Upload artifacts to release
-        run: gh release upload "${{{{ github.ref_name }}}}" dist/*.whl dist/*.tar.gz
-        env:
-          GH_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}
-
-      # Automatic index rebuild — uncomment once PYPI_INDEX_TOKEN is configured
-      # - name: Trigger PyPI index rebuild
-      #   run: |
-      #     gh api repos/{ORG}/gds-idea-pypi/dispatches \\
-      #       -f event_type=rebuild-index
-      #   env:
-      #     GH_TOKEN: ${{{{ secrets.PYPI_INDEX_TOKEN }}}}</code></pre>
-
-    <h3>3. Trigger a rebuild</h3>
-    <p>
-      The index rebuilds automatically every 6 hours. To get a new package or release into the
-      index immediately, trigger a manual rebuild:
+      Some packages provide a CLI and can be installed as global tools with
+      <code>uv tool install</code> — equivalent to <code>pipx</code>.
     </p>
     <p>
-      <a href="https://github.com/{ORG}/gds-idea-pypi/actions/workflows/publish.yml">
-        Actions → Rebuild PyPI Index → Run workflow
-      </a>
+      <strong>You must always pass the full index URL when installing tools.</strong> Unlike
+      project installs, <code>uv tool install</code> has no <code>pyproject.toml</code> in scope,
+      so uv cannot read a stored index definition. This is a uv design constraint — use the
+      <code>idea-tools</code> shell function below to avoid typing the URL every time.
     </p>
-    <blockquote>
-      <p>
-        <strong>Automatic rebuild on release is coming.</strong> Once a
-        <code>PYPI_INDEX_TOKEN</code> (a PAT with <code>repo</code> scope on this repo) is
-        configured as an org-level secret, the commented-out step above can be enabled in each
-        package repo. Releases will then trigger an instant index rebuild without any manual steps.
-      </p>
-    </blockquote>
+
+    <h3>One-time shell setup</h3>
+    <p>Add this function to your <code>~/.zshrc</code> or <code>~/.bashrc</code>, then open a new terminal window (or run <code>source ~/.zshrc</code> to apply it in your current one):</p>
+    <pre><code>idea-tools() {{
+  local cmd="$1"; shift
+  case "$cmd" in
+    install) uv tool install "$@" --index "gds-idea={INDEX_URL}" ;;
+    upgrade) [ $# -eq 0 ] && uv tool upgrade --all || uv tool upgrade "$@" ;;
+    *)       echo "Usage:"
+             echo "  idea-tools install &lt;package&gt;   install an internal tool"
+             echo "  idea-tools upgrade [package]   upgrade (omit package to upgrade all)" ;;
+  esac
+}}</code></pre>
+
+    <h3>Installing and upgrading tools</h3>
+    <pre><code># Install a tool
+idea-tools install gds-idea-app-kit
+idea-tools install "gds-idea-app-kit&gt;=0.2.7"
+
+# Upgrade a specific tool
+idea-tools upgrade gds-idea-app-kit
+
+# Upgrade all installed idea tools at once
+idea-tools upgrade</code></pre>
+
+    <h3>Migrating from git URL installs</h3>
+    <p>
+      If you previously installed a tool from a git URL, reinstall from the index to switch the
+      tracked source. After this, <code>idea-tools upgrade</code> will resolve from the index
+      correctly going forward.
+    </p>
+    <pre><code># Previously installed via git URL:
+uv tool install "gds-idea-app-kit @ git+https://github.com/{ORG}/gds-idea-app-kit"
+
+# Switch to the index:
+idea-tools install gds-idea-app-kit --reinstall</code></pre>
+
+    <hr>
+    <p>
+      Maintaining this index or adding a new package?
+      See the <a href="https://github.com/{ORG}/gds-idea-pypi">project README on GitHub</a>.
+    </p>
   </body>
 </html>
 """

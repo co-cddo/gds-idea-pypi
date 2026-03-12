@@ -2,11 +2,14 @@
 
 An internal PyPI index for GDS IDEA packages, hosted on GitHub Pages.
 
-- **[Latest versions, install instructions & developer setup](https://co-cddo.github.io/gds-idea-pypi/)** — start here
+**Installing or using packages?** See the [GDS IDEA Package Index](https://co-cddo.github.io/gds-idea-pypi/) for install instructions and package listings.
+
 - **Index URL:** `https://co-cddo.github.io/gds-idea-pypi/simple/`
 - **[Rebuild PyPI Index workflow](https://github.com/co-cddo/gds-idea-pypi/actions/workflows/publish.yml)** — trigger a manual rebuild
 
-## Adding a new package
+## Maintaining this index
+
+### Adding a new package
 
 ### 1. Add the repo to `config.toml`
 
