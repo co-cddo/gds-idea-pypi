@@ -180,40 +180,43 @@ def generate_landing_page(
 
     <h2>Using packages in a project</h2>
     <p>
-      Each package is pinned to this index via <code>[tool.uv.sources]</code>, so uv fetches it
-      from here and nowhere else — PyPI is unaffected. The key benefit over git URL pins is
-      <strong>version constraints</strong>: you can use <code>&gt;=</code>, <code>~=</code>, and
-      ranges instead of locking to a specific tag.
+      When adding an internal package you must tell uv which index to use, so it records the
+      source in your <code>pyproject.toml</code>. Without this, the package will still install
+      (uv finds it on the index automatically) but <code>pyproject.toml</code> won't show where
+      it came from — making your project harder to understand and less reproducible.
     </p>
+    <p>You have two options:</p>
 
-    <h3>If your project was scaffolded with <code>idea-app</code></h3>
+    <h3>Option 1 — Always pass the full index URL</h3>
+    <pre><code>uv add cognito-auth --index gds-idea={INDEX_URL}
+uv add llmbo-bedrock --index gds-idea={INDEX_URL}</code></pre>
     <p>
-      The index is already configured in your <code>pyproject.toml</code>. Just add packages by
-      name:
+      uv writes a source pin for each package and won't duplicate the index entry if it's already
+      in your <code>pyproject.toml</code>. Note: <code>--index gds-idea</code> (without the URL)
+      looks like it works but treats <code>gds-idea</code> as a file path — don't use it.
     </p>
-    <pre><code>uv add gds-idea-app-kit --index gds-idea
-uv add gds-idea-auth --index gds-idea</code></pre>
-
-    <h3>Adding the index to an existing project</h3>
-    <p>
-      Pass the full URL the first time you add an internal package. uv will write the index
-      definition and source pin into your <code>pyproject.toml</code> automatically:
-    </p>
-    <pre><code>uv add gds-idea-app-kit --index gds-idea={INDEX_URL}</code></pre>
-    <p>Your <code>pyproject.toml</code> will gain:</p>
+    <p>After adding, your <code>pyproject.toml</code> will contain:</p>
     <pre><code>[tool.uv.sources]
-gds-idea-app-kit = {{ index = "gds-idea" }}  # pinned to this index; PyPI not used for this package
+cognito-auth = {{ index = "gds-idea" }}   # pinned to this index; PyPI not used for this package
+llmbo-bedrock = {{ index = "gds-idea" }}
 
 [[tool.uv.index]]
 name = "gds-idea"
 url = "{INDEX_URL}"</code></pre>
-    <p>After that, any further internal packages only need the index name:</p>
-    <pre><code>uv add gds-idea-auth --index gds-idea</code></pre>
+
+    <h3>Option 2 — Use <code>idea-tools add</code> (recommended)</h3>
+    <p>
+      If you have set up the <code>idea-tools</code> shell function (see below), it bakes in the
+      URL for you — same result, less typing:
+    </p>
+    <pre><code>idea-tools add cognito-auth
+idea-tools add llmbo-bedrock
+idea-tools add "gds-idea-app-kit&gt;=0.2.0"</code></pre>
 
     <h3>Version constraints</h3>
-    <pre><code>uv add "gds-idea-app-kit&gt;=0.2.0" --index gds-idea   # any version from 0.2.0 onwards
-uv add "gds-idea-app-kit~=0.2.0" --index gds-idea   # compatible: &gt;=0.2.0, &lt;0.3.0
-uv add "gds-idea-app-kit&gt;=0.2,&lt;1" --index gds-idea  # explicit range</code></pre>
+    <pre><code>idea-tools add "gds-idea-app-kit&gt;=0.2.0"   # any version from 0.2.0 onwards
+idea-tools add "gds-idea-app-kit~=0.2.0"   # compatible: &gt;=0.2.0, &lt;0.3.0
+idea-tools add "gds-idea-app-kit&gt;=0.2,&lt;1"  # explicit range</code></pre>
 
     <h2>Using CLI tools</h2>
     <p>
@@ -237,11 +240,13 @@ uv add "gds-idea-app-kit&gt;=0.2,&lt;1" --index gds-idea  # explicit range</code
 idea-tools() {{
   local cmd="$1"; shift
   case "$cmd" in
+    add)     uv add "$@" --index "gds-idea={INDEX_URL}" ;;
     install) uv tool install "$@" --index "gds-idea={INDEX_URL}" ;;
     upgrade) [ $# -eq 0 ] && uv tool upgrade --all || uv tool upgrade "$@" ;;
     *)       echo "Usage:"
-             echo "  idea-tools install &lt;package&gt;   install an internal tool"
-             echo "  idea-tools upgrade [package]   upgrade (omit package to upgrade all)" ;;
+             echo "  idea-tools add &lt;package&gt;       add internal package to current project"
+             echo "  idea-tools install &lt;package&gt;   install internal tool globally"
+             echo "  idea-tools upgrade [package]   upgrade tool (omit package to upgrade all)" ;;
   esac
 }}
 EOF</code></pre>
@@ -251,8 +256,12 @@ EOF</code></pre>
       <code>~/.zshrc</code> or <code>~/.bashrc</code>.
     </p>
 
-    <h3>Installing and upgrading tools</h3>
-    <pre><code># Install a tool
+    <h3>Adding packages and installing tools</h3>
+    <pre><code># Add an internal package to the current project
+idea-tools add cognito-auth
+idea-tools add "gds-idea-app-kit&gt;=0.2.7"
+
+# Install an internal tool globally
 idea-tools install gds-idea-app-kit
 idea-tools install "gds-idea-app-kit&gt;=0.2.7"
 
