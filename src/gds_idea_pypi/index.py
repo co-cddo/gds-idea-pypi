@@ -229,8 +229,13 @@ uv add "gds-idea-app-kit&gt;=0.2,&lt;1" --index gds-idea  # explicit range</code
     </p>
 
     <h3>One-time shell setup</h3>
-    <p>Add this function to your <code>~/.zshrc</code> or <code>~/.bashrc</code>, then open a new terminal window (or run <code>source ~/.zshrc</code> to apply it in your current one):</p>
-    <pre><code>idea-tools() {{
+    <p>
+      If you use <strong>zsh (the default shell on a Mac)</strong>, run this command to add
+      <code>idea-tools</code> automatically — no file editing needed. Then open a new terminal
+      window and it will be available:
+    </p>
+    <pre><code>cat >> ~/.zshrc << 'EOF'
+idea-tools() {{
   local cmd="$1"; shift
   case "$cmd" in
     install) uv tool install "$@" --index "gds-idea={INDEX_URL}" ;;
@@ -239,7 +244,13 @@ uv add "gds-idea-app-kit&gt;=0.2,&lt;1" --index gds-idea  # explicit range</code
              echo "  idea-tools install &lt;package&gt;   install an internal tool"
              echo "  idea-tools upgrade [package]   upgrade (omit package to upgrade all)" ;;
   esac
-}}</code></pre>
+}}
+EOF</code></pre>
+    <p>
+      If you use bash, or prefer to edit your config manually, add the function block above
+      (without the <code>cat</code>/<code>EOF</code> wrapper) to your
+      <code>~/.zshrc</code> or <code>~/.bashrc</code>.
+    </p>
 
     <h3>Installing and upgrading tools</h3>
     <pre><code># Install a tool
