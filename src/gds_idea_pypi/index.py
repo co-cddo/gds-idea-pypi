@@ -180,8 +180,8 @@ def generate_landing_page(
 
     <h2>Using packages in a project</h2>
     <p>
-      This index uses <code>explicit = true</code>, meaning packages are only fetched from it when
-      you say so — PyPI is unaffected. The key benefit over git URL pins is
+      Each package is pinned to this index via <code>[tool.uv.sources]</code>, so uv fetches it
+      from here and nowhere else — PyPI is unaffected. The key benefit over git URL pins is
       <strong>version constraints</strong>: you can use <code>&gt;=</code>, <code>~=</code>, and
       ranges instead of locking to a specific tag.
     </p>
@@ -202,12 +202,11 @@ uv add gds-idea-auth --index gds-idea</code></pre>
     <pre><code>uv add gds-idea-app-kit --index gds-idea={INDEX_URL}</code></pre>
     <p>Your <code>pyproject.toml</code> will gain:</p>
     <pre><code>[tool.uv.sources]
-gds-idea-app-kit = {{ index = "gds-idea" }}
+gds-idea-app-kit = {{ index = "gds-idea" }}  # pinned to this index; PyPI not used for this package
 
 [[tool.uv.index]]
 name = "gds-idea"
-url = "{INDEX_URL}"
-explicit = true  # only used for packages explicitly listed above; PyPI is unchanged</code></pre>
+url = "{INDEX_URL}"</code></pre>
     <p>After that, any further internal packages only need the index name:</p>
     <pre><code>uv add gds-idea-auth --index gds-idea</code></pre>
 
