@@ -16,3 +16,6 @@ repo = "gds-idea-box2.0"
 
 [[packages]]
 repo = "gds-idea-gh-kit"
+
+[[packages]]
+repo = "gds-idea-constructs-new"
