@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from .config import load_config
-from .github import discover_repos, get_releases, make_client
+from .github import discover_repos, get_import_names, get_releases, make_client
 from .index import generate_index, generate_landing_page
 
 logger = logging.getLogger("gds_idea_pypi")
@@ -96,6 +96,7 @@ def main() -> None:
                 client,
                 compute_hashes=not args.dry_run,
             )
+            pkg_releases.import_names = get_import_names(config.org, repo, client)
             all_packages.append(pkg_releases)
         except Exception:
             logger.exception(
