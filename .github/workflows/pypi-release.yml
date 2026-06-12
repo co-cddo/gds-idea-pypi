@@ -11,7 +11,7 @@
 #   - Your repo must have a pyproject.toml with a [build-system] section.
 #   - The workflow is triggered by a published release (tag push + release creation).
 #   - To trigger the index rebuild, set an org-level secret called
-#     PYPI_INDEX_TOKEN (a PAT with `repo` scope on co-cddo/gds-idea-pypi),
+#     GDS_IDEA_PYPI_INDEX_TOKEN (a PAT with `repo` scope on co-cddo/gds-idea-pypi),
 #     or set it as a repo-level secret.
 
 name: Build & Publish to PyPI Index
@@ -19,7 +19,7 @@ name: Build & Publish to PyPI Index
 on:
   workflow_call:
     secrets:
-      PYPI_INDEX_TOKEN:
+      GDS_IDEA_PYPI_INDEX_TOKEN:
         description: "PAT with repo scope on co-cddo/gds-idea-pypi (for triggering index rebuild)"
         required: false
 
@@ -42,11 +42,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Trigger PyPI index rebuild
-        if: ${{ secrets.PYPI_INDEX_TOKEN != '' }}
+        if: ${{ secrets.GDS_IDEA_PYPI_INDEX_TOKEN != '' }}
         run: |
           gh api repos/co-cddo/gds-idea-pypi/dispatches \
             -f event_type=rebuild-index \
             -f "client_payload[repo]=${{ github.repository }}" \
             -f "client_payload[tag]=${{ github.ref_name }}"
         env:
-          GH_TOKEN: ${{ secrets.PYPI_INDEX_TOKEN }}
+          GH_TOKEN: ${{ secrets.GDS_IDEA_PYPI_INDEX_TOKEN }}
