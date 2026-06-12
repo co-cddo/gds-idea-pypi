@@ -10,17 +10,20 @@
 # Prerequisites:
 #   - Your repo must have a pyproject.toml with a [build-system] section.
 #   - The workflow is triggered by a published release (tag push + release creation).
-#   - To trigger the index rebuild, set an org-level secret called
-#     GDS_IDEA_PYPI_INDEX_TOKEN (a PAT with `repo` scope on co-cddo/gds-idea-pypi),
-#     or set it as a repo-level secret.
+#   - To trigger the index rebuild, set org-level secrets:
+#     GDS_IDEA_PYPI_APP_ID and GDS_IDEA_PYPI_APP_PRIVATE_KEY
+#     (from a GitHub App installed on co-cddo/gds-idea-pypi with contents:write).
 
 name: Build & Publish to PyPI Index
 
 on:
   workflow_call:
     secrets:
-      GDS_IDEA_PYPI_INDEX_TOKEN:
-        description: "PAT with repo scope on co-cddo/gds-idea-pypi (for triggering index rebuild)"
+      GDS_IDEA_PYPI_APP_ID:
+        description: "App ID for the gds-idea-pypi-rebuild GitHub App"
+        required: false
+      GDS_IDEA_PYPI_APP_PRIVATE_KEY:
+        description: "Private key for the gds-idea-pypi-rebuild GitHub App"
         required: false
 
 jobs:
@@ -41,12 +44,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate GitHub App token
+        id: app-token
+        if: ${{ secrets.GDS_IDEA_PYPI_APP_ID != '' }}
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GDS_IDEA_PYPI_APP_ID }}
+          private-key: ${{ secrets.GDS_IDEA_PYPI_APP_PRIVATE_KEY }}
+          owner: co-cddo
+          repositories: gds-idea-pypi
+
       - name: Trigger PyPI index rebuild
-        if: ${{ secrets.GDS_IDEA_PYPI_INDEX_TOKEN != '' }}
+        if: ${{ steps.app-token.outputs.token != '' }}
         run: |
           gh api repos/co-cddo/gds-idea-pypi/dispatches \
             -f event_type=rebuild-index \
             -f "client_payload[repo]=${{ github.repository }}" \
             -f "client_payload[tag]=${{ github.ref_name }}"
         env:
-          GH_TOKEN: ${{ secrets.GDS_IDEA_PYPI_INDEX_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
