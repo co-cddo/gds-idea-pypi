@@ -107,6 +107,7 @@ def generate_landing_page(
 
     # Build versions table rows
     table_rows = []
+    show_import_col = any(pkg.import_names for pkg in packages)
     for pkg in sorted(packages, key=lambda p: p.package_name):
         if not pkg.releases:
             continue
@@ -117,20 +118,36 @@ def generate_landing_page(
             if has_wheel
             else '<span class="badge source">source only</span>'
         )
-        all_versions = ", ".join(
-            f'<a href="simple/{escape(pkg.package_name)}/">{escape(r.version)}</a>'
-            for r in sorted(pkg.releases, key=lambda r: r.version, reverse=True)
+        sorted_releases = sorted(pkg.releases, key=lambda r: r.version, reverse=True)
+        older_count = len(sorted_releases) - 1
+        summary_label = escape(latest.version)
+        if older_count > 0:
+            summary_label += f" (and {older_count} older)"
+        version_links = "\n".join(
+            f'          <a href="simple/{escape(pkg.package_name)}/">{escape(r.version)}</a>'
+            for r in sorted_releases
+        )
+        all_versions = (
+            f'<details class="versions"><summary>{summary_label}</summary>'
+            f'<div class="versions-list">\n{version_links}\n          </div></details>'
+        )
+        import_cell = (
+            "<br>".join(f"<code>import {escape(n)}</code>" for n in pkg.import_names)
+            if pkg.import_names
+            else "—"
         )
         repo_url = f"https://github.com/{ORG}/{escape(pkg.repo)}"
+        import_td = f"\n        <td>{import_cell}</td>" if show_import_col else ""
         table_rows.append(f"""\
       <tr>
         <td><code>{escape(pkg.package_name)}</code></td>
-        <td><strong>{escape(latest.version)}</strong> {wheel_badge}</td>
+        <td><strong>{escape(latest.version)}</strong> {wheel_badge}</td>{import_td}
         <td class="versions">{all_versions}</td>
         <td><a href="{repo_url}">{escape(pkg.repo)}</a></td>
       </tr>""")
 
     table_body = "\n".join(table_rows)
+    import_th = "\n          <th>Import as</th>" if show_import_col else ""
 
     html = f"""\
 <!DOCTYPE html>
@@ -147,6 +164,8 @@ def generate_landing_page(
       th {{ background: #f6f8fa; text-align: left; padding: 8px 12px; border: 1px solid #d0d7de; }}
       td {{ padding: 8px 12px; border: 1px solid #d0d7de; vertical-align: top; }}
       td.versions {{ font-size: 0.85em; color: #57606a; }}
+      details.versions summary {{ cursor: pointer; color: #0969da; font-size: 0.85em; }}
+      .versions-list {{ display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: 0.85em; }}
       code, pre {{ background: #f6f8fa; border-radius: 4px; font-family: "SFMono-Regular", Consolas, monospace; }}
       code {{ padding: 2px 5px; font-size: 0.9em; }}
       pre {{ padding: 14px; overflow-x: auto; font-size: 0.875em; border: 1px solid #d0d7de; }}
@@ -166,12 +185,12 @@ def generate_landing_page(
     <h2>Latest versions</h2>
     <table>
       <thead>
-        <tr>
-          <th>Package</th>
-          <th>Latest</th>
-          <th>All versions</th>
-          <th>Repo</th>
-        </tr>
+          <tr>
+            <th>Package</th>
+            <th>Latest</th>{import_th}
+            <th>All versions</th>
+            <th>Repo</th>
+          </tr>
       </thead>
       <tbody>
 {table_body}
@@ -184,6 +203,10 @@ def generate_landing_page(
       source in your <code>pyproject.toml</code>. Without this, the package will still install
       (uv finds it on the index automatically) but <code>pyproject.toml</code> won't show where
       it came from — making your project harder to understand and less reproducible.
+    </p>
+    <p>
+      Use <code>idea-tools add</code> for any package you import in your code — libraries and
+      CLI tools alike.
     </p>
     <p>You have two options:</p>
 
@@ -218,10 +241,16 @@ idea-tools add "gds-idea-app-kit&gt;=0.2.0"</code></pre>
 idea-tools add "gds-idea-app-kit~=0.2.0"   # compatible: &gt;=0.2.0, &lt;0.3.0
 idea-tools add "gds-idea-app-kit&gt;=0.2,&lt;1"  # explicit range</code></pre>
 
-    <h2>Using CLI tools</h2>
+    <h2>Installing CLI tools globally</h2>
     <p>
-      Some packages provide a CLI and can be installed as global tools with
+      Some packages provide a command-line tool and can be installed globally with
       <code>uv tool install</code> — equivalent to <code>pipx</code>.
+    </p>
+    <p>
+      <strong>Only use <code>idea-tools install</code> for packages that provide a CLI.</strong>
+      For library packages you import in your code (such as <code>cognito-auth</code> or
+      <code>llmbo-bedrock</code>), use <code>idea-tools add</code> instead — that records the
+      dependency in your <code>pyproject.toml</code> where it belongs.
     </p>
     <p>
       <strong>You must always pass the full index URL when installing tools.</strong> Unlike

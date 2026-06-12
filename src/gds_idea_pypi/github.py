@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import logging
 import re
+import tomllib
 from dataclasses import dataclass, field
 
 import httpx
@@ -49,6 +51,7 @@ class PackageReleases:
     repo: str
     package_name: str  # normalised name from the wheel or derived from repo
     releases: list[Release] = field(default_factory=list)
+    import_names: list[str] = field(default_factory=list)
 
 
 def parse_version_from_tag(tag: str) -> str | None:
@@ -110,6 +113,60 @@ def _compute_sha256(client: httpx.Client, url: str) -> str:
         for chunk in resp.iter_bytes(chunk_size=8192):
             h.update(chunk)
     return h.hexdigest()
+
+
+def get_import_names(org: str, repo: str, client: httpx.Client) -> list[str]:
+    """Fetch the top-level importable package names for a repo.
+
+    Reads pyproject.toml from the repo's default branch via the GitHub Contents
+    API. Tries tool.hatch.build.targets.wheel.packages first; falls back to
+    listing the src/ directory. Returns an empty list on any failure.
+    """
+    contents_url = f"https://api.github.com/repos/{org}/{repo}/contents"
+
+    try:
+        resp = client.get(f"{contents_url}/pyproject.toml")
+        if resp.status_code == 404:
+            logger.debug("%s/%s: no pyproject.toml found", org, repo)
+            return []
+        resp.raise_for_status()
+
+        raw_toml = base64.b64decode(resp.json()["content"])
+        pyproject = tomllib.loads(raw_toml.decode())
+
+        # Try explicit hatchling wheel packages list first
+        packages_list: list[str] = (
+            pyproject.get("tool", {})
+            .get("hatch", {})
+            .get("build", {})
+            .get("targets", {})
+            .get("wheel", {})
+            .get("packages", [])
+        )
+        if packages_list:
+            # Entries look like "src/foo" or "foo" — strip leading src/ if present
+            names = [p.removeprefix("src/").strip("/") for p in packages_list]
+            logger.debug("%s/%s: import names from pyproject.toml: %s", org, repo, names)
+            return names
+
+        # Fall back to listing src/ directory
+        resp2 = client.get(f"{contents_url}/src")
+        if resp2.status_code == 404:
+            logger.debug("%s/%s: no src/ directory found", org, repo)
+            return []
+        resp2.raise_for_status()
+
+        names = [
+            entry["name"]
+            for entry in resp2.json()
+            if entry["type"] == "dir" and not entry["name"].startswith(".")
+        ]
+        logger.debug("%s/%s: import names from src/ listing: %s", org, repo, names)
+        return sorted(names)
+
+    except Exception:
+        logger.warning("%s/%s: could not determine import names", org, repo, exc_info=True)
+        return []
 
 
 def get_releases(
