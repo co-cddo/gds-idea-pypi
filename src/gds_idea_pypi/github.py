@@ -232,6 +232,36 @@ def get_releases(
     )
 
 
+def discover_repos(
+    org: str,
+    client: httpx.Client,
+    *,
+    prefix: str,
+) -> list[str]:
+    """Discover non-archived repos in an org whose names start with prefix."""
+    repos: list[str] = []
+    url = f"https://api.github.com/orgs/{org}/repos"
+    page = 1
+
+    while True:
+        resp = client.get(url, params={"per_page": 100, "page": page, "type": "public"})
+        resp.raise_for_status()
+        data = resp.json()
+
+        if not data:
+            break
+
+        for repo in data:
+            if repo["archived"]:
+                continue
+            if repo["name"].startswith(prefix):
+                repos.append(repo["name"])
+
+        page += 1
+
+    return sorted(repos)
+
+
 def make_client(token: str | None = None) -> httpx.Client:
     """Create an httpx client with optional GitHub token auth."""
     headers = {
