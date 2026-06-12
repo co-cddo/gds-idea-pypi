@@ -16,6 +16,7 @@ class PackageConfig:
 class IndexConfig:
     org: str
     base_url: str
+    repo_prefix: str = ""
     packages: list[PackageConfig] = field(default_factory=list)
 
 
@@ -36,6 +37,7 @@ def load_config(path: Path | None = None) -> IndexConfig:
     index = raw.get("index", {})
     org = index.get("org")
     base_url = index.get("base_url", "")
+    repo_prefix = index.get("repo_prefix", "")
 
     if not org:
         raise ValueError("config.toml: [index].org is required")
@@ -44,7 +46,9 @@ def load_config(path: Path | None = None) -> IndexConfig:
         PackageConfig(repo=p["repo"]) for p in raw.get("packages", [])
     ]
 
-    if not packages:
-        raise ValueError("config.toml: at least one [[packages]] entry is required")
+    if not packages and not repo_prefix:
+        raise ValueError(
+            "config.toml: at least one of [index].repo_prefix or [[packages]] is required"
+        )
 
-    return IndexConfig(org=org, base_url=base_url, packages=packages)
+    return IndexConfig(org=org, base_url=base_url, repo_prefix=repo_prefix, packages=packages)

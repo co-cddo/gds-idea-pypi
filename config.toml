@@ -1,7 +1,9 @@
 [index]
 org = "co-cddo"
 base_url = "https://co-cddo.github.io/gds-idea-pypi/simple"
+repo_prefix = "gds-idea-pkg-"
 
+# Legacy repos that don't match the auto-discovery prefix
 [[packages]]
 repo = "gds-idea-app-auth"
 

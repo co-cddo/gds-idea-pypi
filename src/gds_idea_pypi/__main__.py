@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from .config import load_config
-from .github import get_releases, make_client
+from .github import discover_repos, get_releases, make_client
 from .index import generate_index, generate_landing_page
 
 logger = logging.getLogger("gds_idea_pypi")
@@ -61,7 +61,6 @@ def main() -> None:
         sys.exit(1)
 
     logger.info("Org: %s", config.org)
-    logger.info("Packages: %s", ", ".join(p.repo for p in config.packages))
 
     # Discover releases
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
@@ -71,14 +70,29 @@ def main() -> None:
         )
 
     client = make_client(token)
+
+    # Build the full set of repos to scan: explicit + discovered
+    repos_to_scan: set[str] = {p.repo for p in config.packages}
+
+    if config.repo_prefix:
+        discovered = discover_repos(config.org, client, prefix=config.repo_prefix)
+        logger.info(
+            "Discovered %d repo(s) matching prefix %r: %s",
+            len(discovered),
+            config.repo_prefix,
+            ", ".join(discovered) if discovered else "(none)",
+        )
+        repos_to_scan.update(discovered)
+
+    logger.info("Total repos to scan: %d", len(repos_to_scan))
     all_packages = []
 
-    for pkg_config in config.packages:
-        logger.info("Scanning %s/%s ...", config.org, pkg_config.repo)
+    for repo in sorted(repos_to_scan):
+        logger.info("Scanning %s/%s ...", config.org, repo)
         try:
             pkg_releases = get_releases(
                 config.org,
-                pkg_config.repo,
+                repo,
                 client,
                 compute_hashes=not args.dry_run,
             )
@@ -87,7 +101,7 @@ def main() -> None:
             logger.exception(
                 "Failed to fetch releases for %s/%s",
                 config.org,
-                pkg_config.repo,
+                repo,
             )
             continue
 
