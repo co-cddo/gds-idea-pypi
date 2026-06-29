@@ -21,3 +21,6 @@ repo = "gds-idea-gh-kit"
 
 [[packages]]
 repo = "gds-idea-cdk-constructs-new"
+
+[[packages]]
+repo = "gds-idea-dashboard-observability"
