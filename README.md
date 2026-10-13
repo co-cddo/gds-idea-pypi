@@ -66,15 +66,22 @@ The [publish workflow](.github/workflows/publish.yml) runs on a schedule, on man
 
 ### When something fails
 
-One flaky request should not remove a package from the index, so failures are contained and reported rather than aborting the run:
+One flaky request should not remove a package from the index, so failures are contained and reported rather than aborting the run. The index is **always deployed**, so a problem with one package never blocks updates to the others. If anything failed, the run then finishes **red** and lists what went wrong as annotations on the run page and in the job summary.
 
-- **SHA-256 hashes:** each file is downloaded once to compute its hash. Transient failures (5xx, 429, network errors) are retried 3 times with backoff. If a file still fails, it stays in the index **without a hash** (still installable) and the failure is reported. The next rebuild normally restores the hash.
-- **Whole-repo failures** (for example the releases listing call fails): that repo is left out of the index for this build and the failure is reported.
-- **Either way the index is still deployed**, so one problem does not block updates to other packages. The run then **fails** (red) and lists what went wrong as annotations on the run page and in the job summary.
+| What failed | What the index does | What you see |
+|---|---|---|
+| A file's SHA-256 download (after 3 retries on 5xx, 429 and network errors) | The file stays in the index **without a hash** (still installable). The next rebuild normally restores the hash. | Red run, error annotation per file |
+| A whole repo can't be scanned (for example the releases listing call fails) | The repo's **last published versions are reused** from the live index. New releases for it appear after the next successful rebuild. | Red run, error annotation per repo |
+| A repo can't be scanned and the live index is unavailable or has nothing for it | The repo is **missing** from this build. | Red run, error annotation per repo |
+| A file that was on the live index is no longer listed (a release or repo was deleted or archived) | It is removed, as intended. | Warning annotation and a list in the job summary; the run stays green |
 
-A red run on its own does not mean the index is broken, but check the summary: a repo listed as missing means that package is absent from the live index until the next successful rebuild.
+Things to know:
 
-The CLI exits with code `3` when the index was written but there were errors, `1` for startup errors (nothing written), and `0` otherwise.
+- A red run means "look at the summary", not "the index is broken". The summary says which of the cases above applies.
+- Reusing last published versions works by reading the live index at `base_url`. On the very first run, or if GitHub Pages is unreachable, there is nothing to reuse and a failed repo is simply missing from that build.
+- A repo that fails permanently (for example one deleted or renamed without updating `config.toml`) keeps being carried forward and keeps turning the run red. Remove it from `config.toml` to clear it.
+
+The CLI exits with code `3` when the index was written but there were failures, `1` for startup errors (nothing written), and `0` otherwise. `--dry-run` does not read the live index.
 
 ## Development
 
