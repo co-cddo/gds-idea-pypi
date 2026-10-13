@@ -8,15 +8,41 @@ import os
 import sys
 from pathlib import Path
 
+import httpx
+
 from .config import load_config
-from .github import discover_repos, get_import_names, get_releases, make_client
+from .github import (
+    PackageReleases,
+    discover_repos,
+    get_import_names,
+    get_releases,
+    make_client,
+)
 from .index import generate_index, generate_landing_page
-from .report import has_failures, report_failures
+from .live import carry_forward, fetch_published_index, find_removed_files, make_pages_client
+from .report import RebuildProblems, has_failures, needs_report, report_problems
 
 logger = logging.getLogger("gds_idea_pypi")
 
 # Index was written and is deployable, but some repos or assets had errors.
 PARTIAL_FAILURE_EXIT_CODE = 3
+
+
+def _load_published(base_url: str) -> list[PackageReleases]:
+    """Fetch the currently published index, or return [] (with a warning) if unavailable."""
+    if not base_url:
+        logger.warning("No [index].base_url configured; cannot compare with published index")
+        return []
+    try:
+        with make_pages_client() as pages_client:
+            return fetch_published_index(base_url, pages_client)
+    except httpx.HTTPError:
+        logger.warning(
+            "Could not fetch the published index at %s; failed repos cannot be carried forward",
+            base_url,
+            exc_info=True,
+        )
+        return []
 
 
 def main() -> None:
@@ -89,7 +115,7 @@ def main() -> None:
         repos_to_scan.update(discovered)
 
     logger.info("Total repos to scan: %d", len(repos_to_scan))
-    all_packages = []
+    all_packages: list[PackageReleases] = []
     failed_repos: list[str] = []
 
     for repo in sorted(repos_to_scan):
@@ -111,6 +137,26 @@ def main() -> None:
             )
             failed_repos.append(repo)
             continue
+
+    # Compare with what is live: reuse last published versions of repos that failed to
+    # scan, and note files that have disappeared.
+    problems = RebuildProblems(failed_repos=failed_repos)
+    if not args.dry_run:
+        published = _load_published(config.base_url)
+        carried = carry_forward(failed_repos, published)
+        for pkg in carried:
+            logger.warning(
+                "%s/%s: scan failed, carrying forward %d published release(s)",
+                config.org,
+                pkg.repo,
+                len(pkg.releases),
+            )
+            pkg.import_names = get_import_names(config.org, pkg.repo, client)
+        all_packages.extend(carried)
+        problems.carried_forward = sorted({pkg.repo for pkg in carried})
+        problems.removed_files = find_removed_files(
+            published, all_packages, ignore_repos=set(failed_repos)
+        )
 
     # Report
     for pkg in all_packages:
@@ -137,8 +183,9 @@ def main() -> None:
     logger.info("Index written to %s/simple/", args.output)
     logger.info("Landing page written to %s/index.html", args.output)
 
-    if has_failures(failed_repos, all_packages):
-        report_failures(config.org, failed_repos, all_packages)
+    if needs_report(problems, all_packages):
+        report_problems(config.org, problems, all_packages)
+    if has_failures(problems, all_packages):
         sys.exit(PARTIAL_FAILURE_EXIT_CODE)
 
 

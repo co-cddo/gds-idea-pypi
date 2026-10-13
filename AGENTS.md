@@ -47,9 +47,9 @@ uv run pytest -v
 Tests live in `tests/` and mirror the module structure: `tests/test_github.py`,
 `tests/test_report.py`, etc. Use plain `assert` statements — no `unittest.TestCase`.
 
-Never hit the network in tests. Fake GitHub with `httpx.MockTransport` and patch
-`github.time.sleep` so retry backoff is instant. Patch collaborators on `__main__` to test the
-CLI end to end.
+Never hit the network in tests. Fake GitHub and the published index with `httpx.MockTransport`
+and patch `github.time.sleep` so retry backoff is instant. Patch collaborators on `__main__` to
+test the CLI end to end.
 
 ---
 
@@ -181,15 +181,15 @@ Private helper functions should have a docstring if their behaviour is non-obvio
 
 ## Error handling
 
-- **Library functions** (`config.py`, `github.py`, `index.py`): raise specific, typed exceptions
+- **Library functions** (`config.py`, `github.py`, `index.py`, `live.py`): raise specific, typed exceptions
   with descriptive messages. Do not catch broad exceptions internally.
   ```python
   raise FileNotFoundError(f"Config file not found: {path}")
   raise ValueError("config.toml: [index].org is required")
   ```
 - **HTTP responses:** call `resp.raise_for_status()` immediately after every response; let
-  `httpx.HTTPStatusError` propagate from library functions. The one exception is asset hashing
-  (see below).
+  `httpx.HTTPStatusError` propagate from library functions. The exceptions are asset hashing and
+  individual published package pages in `live.py` (see below and "Carry forward").
 - **Asset hash failures:** `github._hash_asset` catches `httpx.HTTPError` (never broader) after
   `_compute_sha256_with_retry` has retried transient failures (5xx, 429, transport errors; not
   other 4xx). A failed asset stays in the index without a `#sha256` fragment and is recorded in
@@ -200,9 +200,16 @@ Private helper functions should have a docstring if their behaviour is non-obvio
 - **Unrecoverable startup errors:** use `sys.exit(1)` after logging the error.
 - **Soft/skippable issues:** use `logger.warning()` and continue — never silently swallow.
 - **Partial failures:** the CLI collects failed repos and hash failures, still writes the full
-  index, then calls `report.report_failures()` (log, `::error::` annotations, job summary) and
-  exits with `PARTIAL_FAILURE_EXIT_CODE` (3). Exit code 1 is reserved for startup errors where
-  no index is written. Do not turn a per-item failure into silent success or into an early abort.
+  index, then calls `report.report_problems()` (log, `::error::`/`::warning::` annotations, job
+  summary) and exits with `PARTIAL_FAILURE_EXIT_CODE` (3). Exit code 1 is reserved for startup
+  errors where no index is written. Do not turn a per-item failure into silent success or into
+  an early abort.
+- **Carry forward:** a repo that fails to scan must not vanish from the index. The CLI fetches
+  the live index (`live.fetch_published_index`) and reuses that repo's last published package
+  (`live.carry_forward`). If the live index is unavailable, log a warning and continue; the repo
+  is then reported as missing. Files that disappeared since the last publish
+  (`live.find_removed_files`) are a warning, not a failure, so deliberate removals never block a
+  deploy. Never send GitHub credentials to the Pages host; use `live.make_pages_client()`.
 - Do not define custom exception classes unless there is a clear, repeated need.
 
 ---
@@ -214,11 +221,14 @@ Private helper functions should have a docstring if their behaviour is non-obvio
 | `config.py` | Load and validate `config.toml` via `tomllib`; return typed dataclasses |
 | `github.py` | GitHub API client; discover releases, categorise assets, compute SHA-256 hashes |
 | `index.py` | Render PEP 503 HTML index pages and the human-friendly landing page |
-| `report.py` | Report rebuild failures: log lines, GitHub Actions annotations, job summary |
+| `live.py` | Fetch and parse the currently published index; carry failed repos forward; detect removed files |
+| `report.py` | Report rebuild problems: log lines, GitHub Actions annotations, job summary |
 | `__main__.py` | CLI wiring (argparse), logging setup, orchestration; no business logic |
 
 Keep this separation clean. `index.py` should not call GitHub. `github.py` should not write
-files. `__main__.py` should not contain logic that belongs in a library function.
+files. `live.py` reads what `index.py` writes, so keep their HTML formats in step (the
+round-trip test in `tests/test_live.py` guards this). `__main__.py` should not contain logic
+that belongs in a library function.
 
 ---
 
