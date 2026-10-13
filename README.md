@@ -63,3 +63,9 @@ The [publish workflow](.github/workflows/publish.yml) runs on a schedule, on man
 3. For releases with `.whl` assets — links directly to the GitHub Release download URL
 4. For releases without built assets — links to the auto-generated source tarball as a fallback (note: uv cannot install from these — see step 2 above)
 5. Generates PEP 503-compliant HTML and deploys to GitHub Pages
+
+### Keeping the schedule alive
+
+GitHub automatically disables scheduled workflows in public repos after 60 days without repository activity. To prevent this, scheduled runs also commit a date stamp (`keepalive.txt`) to an orphan `keepalive` branch, at most once a week. The branch shares no history with `main` and is never deployed.
+
+If the schedule is ever disabled anyway, re-enable it with `gh workflow enable publish.yml` and check whether the keepalive branch is still being updated.
