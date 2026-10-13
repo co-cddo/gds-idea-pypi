@@ -28,25 +28,28 @@ uv build                                         # produce dist/*.whl and dist/*
 
 ## Tests
 
-There is currently no test suite. When tests are added, the expected framework is `pytest`.
+Tests use `pytest` (a dev dependency; `uv sync` installs it).
 
 ```bash
-# Run all tests (once a tests/ directory exists)
-pytest
+# Run all tests
+uv run pytest
 
 # Run a single test file
-pytest tests/test_github.py
+uv run pytest tests/test_github.py
 
 # Run a single test by name
-pytest tests/test_github.py::test_parse_version_from_tag
+uv run pytest tests/test_github.py::test_hash_retries_then_succeeds
 
 # Run with verbose output
-pytest -v
+uv run pytest -v
 ```
 
-When writing tests, place them in `tests/` at the project root. Mirror the module structure:
-`tests/test_github.py`, `tests/test_config.py`, etc. Use plain `assert` statements — no
-`unittest.TestCase`.
+Tests live in `tests/` and mirror the module structure: `tests/test_github.py`,
+`tests/test_report.py`, etc. Use plain `assert` statements — no `unittest.TestCase`.
+
+Never hit the network in tests. Fake GitHub with `httpx.MockTransport` and patch
+`github.time.sleep` so retry backoff is instant. Patch collaborators on `__main__` to test the
+CLI end to end.
 
 ---
 
@@ -185,11 +188,21 @@ Private helper functions should have a docstring if their behaviour is non-obvio
   raise ValueError("config.toml: [index].org is required")
   ```
 - **HTTP responses:** call `resp.raise_for_status()` immediately after every response; let
-  `httpx.HTTPStatusError` propagate from library functions.
+  `httpx.HTTPStatusError` propagate from library functions. The one exception is asset hashing
+  (see below).
+- **Asset hash failures:** `github._hash_asset` catches `httpx.HTTPError` (never broader) after
+  `_compute_sha256_with_retry` has retried transient failures (5xx, 429, transport errors; not
+  other 4xx). A failed asset stays in the index without a `#sha256` fragment and is recorded in
+  `PackageReleases.hash_failures`. A failed hash must never remove an asset or a package from
+  the index.
 - **CLI entry point** (`__main__.py`): catch broad `Exception` with `logger.exception(...)` for
   per-item failures and `continue` — one failing repo should not abort the whole run.
 - **Unrecoverable startup errors:** use `sys.exit(1)` after logging the error.
 - **Soft/skippable issues:** use `logger.warning()` and continue — never silently swallow.
+- **Partial failures:** the CLI collects failed repos and hash failures, still writes the full
+  index, then calls `report.report_failures()` (log, `::error::` annotations, job summary) and
+  exits with `PARTIAL_FAILURE_EXIT_CODE` (3). Exit code 1 is reserved for startup errors where
+  no index is written. Do not turn a per-item failure into silent success or into an early abort.
 - Do not define custom exception classes unless there is a clear, repeated need.
 
 ---
@@ -201,6 +214,7 @@ Private helper functions should have a docstring if their behaviour is non-obvio
 | `config.py` | Load and validate `config.toml` via `tomllib`; return typed dataclasses |
 | `github.py` | GitHub API client; discover releases, categorise assets, compute SHA-256 hashes |
 | `index.py` | Render PEP 503 HTML index pages and the human-friendly landing page |
+| `report.py` | Report rebuild failures: log lines, GitHub Actions annotations, job summary |
 | `__main__.py` | CLI wiring (argparse), logging setup, orchestration; no business logic |
 
 Keep this separation clean. `index.py` should not call GitHub. `github.py` should not write
@@ -229,13 +243,17 @@ input — do not add silent fallbacks.
 
 ## CI/CD
 
-Two workflows in `.github/workflows/`:
+One workflow in `.github/workflows/`:
 
 - **`publish.yml`** — rebuilds the index and deploys to GitHub Pages. Triggers: push to `main`
   when `config.toml` changes, schedule every 6 hours, manual `workflow_dispatch`, and
   `repository_dispatch` with type `rebuild-index`. Uses Python 3.12 and `pip install .`.
-- **`pypi-release.yml`** — reusable workflow (`workflow_call`) for downstream package repos.
-  Runs `uv build` and uploads `dist/*.whl` and `dist/*.tar.gz` to the GitHub Release.
+  It has two jobs:
+  - `build-and-deploy` — runs the CLI. Exit code 3 (partial failure) is captured in the
+    `rebuild` step, the index is still deployed, and a final step then fails the job so the
+    problem is visible. Any other non-zero exit code fails the job before deploying.
+  - `keepalive` — scheduled runs only. Commits a date stamp to an orphan `keepalive` branch at
+    most weekly so GitHub does not disable the schedule after 60 days of inactivity.
 
 When modifying `publish.yml`, do not change the concurrency group (`pages`) or set
 `cancel-in-progress: true` — queued deploys must not be skipped.

@@ -6,6 +6,7 @@ import base64
 import hashlib
 import logging
 import re
+import time
 import tomllib
 from dataclasses import dataclass, field
 
@@ -21,6 +22,10 @@ _SDIST_RE = re.compile(r"\.tar\.gz$")
 _TAG_VERSION_RE = re.compile(
     r"^v?\.?(\d+(?:\.\d+)*(?:[-._]?(?:a|b|rc|dev|post)\d*)?)$"
 )
+
+# Hash downloads are retried on transient failures (5xx, 429, transport errors).
+_HASH_ATTEMPTS = 3
+_HASH_RETRY_BASE_DELAY = 1.0  # seconds; doubled after each failed attempt
 
 
 @dataclass
@@ -52,6 +57,8 @@ class PackageReleases:
     package_name: str  # normalised name from the wheel or derived from repo
     releases: list[Release] = field(default_factory=list)
     import_names: list[str] = field(default_factory=list)
+    # "tag/filename" of assets indexed without a sha256 because the download failed
+    hash_failures: list[str] = field(default_factory=list)
 
 
 def parse_version_from_tag(tag: str) -> str | None:
@@ -113,6 +120,66 @@ def _compute_sha256(client: httpx.Client, url: str) -> str:
         for chunk in resp.iter_bytes(chunk_size=8192):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _is_retryable(exc: httpx.HTTPError) -> bool:
+    """Return True for transient failures: transport errors, 5xx and 429 responses."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        return status >= 500 or status == 429
+    return isinstance(exc, httpx.TransportError)
+
+
+def _compute_sha256_with_retry(client: httpx.Client, url: str) -> str:
+    """Compute a SHA-256 hash, retrying transient failures with exponential backoff.
+
+    Non-transient errors (such as a 404) are raised immediately. After the final
+    attempt the last httpx.HTTPError is re-raised.
+    """
+    delay = _HASH_RETRY_BASE_DELAY
+    for attempt in range(1, _HASH_ATTEMPTS + 1):
+        try:
+            return _compute_sha256(client, url)
+        except httpx.HTTPError as exc:
+            if attempt == _HASH_ATTEMPTS or not _is_retryable(exc):
+                raise
+            logger.warning(
+                "sha256 attempt %d/%d failed for %s (%s); retrying in %.0fs",
+                attempt,
+                _HASH_ATTEMPTS,
+                url,
+                exc,
+                delay,
+            )
+            time.sleep(delay)
+            delay *= 2
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _hash_asset(
+    client: httpx.Client,
+    url: str,
+    label: str,
+    failures: list[str],
+    *,
+    compute_hashes: bool,
+) -> str:
+    """Return the SHA-256 for an asset, or "" if hashing is disabled or fails.
+
+    A failed hash must not remove the asset from the index: the file is still
+    installable without the #sha256 fragment. The failure is logged and appended
+    to failures so the caller can report it.
+    """
+    if not compute_hashes:
+        return ""
+    try:
+        return _compute_sha256_with_retry(client, url)
+    except httpx.HTTPError:
+        logger.error(
+            "%s: could not compute sha256, indexing without hash", label, exc_info=True
+        )
+        failures.append(label)
+        return ""
 
 
 def get_import_names(org: str, repo: str, client: httpx.Client) -> list[str]:
@@ -181,9 +248,13 @@ def get_releases(
     For releases with wheel/sdist assets, records their download URLs.
     For releases without built assets, uses the auto-generated source tarball
     as a fallback.
+
+    If an asset's SHA-256 cannot be computed after retries, the asset is still
+    indexed without a hash and recorded in PackageReleases.hash_failures.
     """
     url = f"https://api.github.com/repos/{org}/{repo}/releases"
     releases: list[Release] = []
+    hash_failures: list[str] = []
     package_name: str | None = None
 
     page = 1
@@ -213,10 +284,12 @@ def get_releases(
                 download_url = asset["browser_download_url"]
 
                 if _WHEEL_RE.search(name):
-                    sha = (
-                        _compute_sha256(client, download_url)
-                        if compute_hashes
-                        else ""
+                    sha = _hash_asset(
+                        client,
+                        download_url,
+                        f"{tag}/{name}",
+                        hash_failures,
+                        compute_hashes=compute_hashes,
                     )
                     assets.append(
                         Asset(
@@ -232,10 +305,12 @@ def get_releases(
                         package_name = _package_name_from_wheel(name)
 
                 elif _SDIST_RE.search(name) and not _is_auto_generated_archive(name):
-                    sha = (
-                        _compute_sha256(client, download_url)
-                        if compute_hashes
-                        else ""
+                    sha = _hash_asset(
+                        client,
+                        download_url,
+                        f"{tag}/{name}",
+                        hash_failures,
+                        compute_hashes=compute_hashes,
                     )
                     assets.append(
                         Asset(
@@ -253,10 +328,12 @@ def get_releases(
                 if tarball_url:
                     # Construct a proper filename for the source archive
                     fallback_name = f"{repo}-{version}.tar.gz"
-                    sha = (
-                        _compute_sha256(client, tarball_url)
-                        if compute_hashes
-                        else ""
+                    sha = _hash_asset(
+                        client,
+                        tarball_url,
+                        f"{tag}/{fallback_name}",
+                        hash_failures,
+                        compute_hashes=compute_hashes,
                     )
                     assets.append(
                         Asset(
@@ -286,6 +363,7 @@ def get_releases(
         repo=repo,
         package_name=package_name,
         releases=releases,
+        hash_failures=hash_failures,
     )
 
 
