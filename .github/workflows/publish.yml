@@ -66,8 +66,19 @@ jobs:
       - name: Install dependencies
         run: pip install .
 
+      # Exit code 3 means the index was written but some repos or assets had
+      # errors. Deploy it anyway (a flaky download should not block updates),
+      # then fail the job at the end so the problem is visible. Any other
+      # non-zero exit code fails the job immediately, before deploying.
       - name: Rebuild index
-        run: python -m gds_idea_pypi --output _site/
+        id: rebuild
+        run: |
+          code=0
+          python -m gds_idea_pypi --output _site/ || code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -ne 0 ] && [ "$code" -ne 3 ]; then
+            exit "$code"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -81,3 +92,9 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Fail if the index was rebuilt with errors
+        if: steps.rebuild.outputs.exit_code == '3'
+        run: |
+          echo "::error::Index deployed, but some repos or assets had errors. See the job summary."
+          exit 1

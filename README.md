@@ -64,6 +64,26 @@ The [publish workflow](.github/workflows/publish.yml) runs on a schedule, on man
 4. For releases without built assets — links to the auto-generated source tarball as a fallback (note: uv cannot install from these — see step 2 above)
 5. Generates PEP 503-compliant HTML and deploys to GitHub Pages
 
+### When something fails
+
+One flaky request should not remove a package from the index, so failures are contained and reported rather than aborting the run:
+
+- **SHA-256 hashes:** each file is downloaded once to compute its hash. Transient failures (5xx, 429, network errors) are retried 3 times with backoff. If a file still fails, it stays in the index **without a hash** (still installable) and the failure is reported. The next rebuild normally restores the hash.
+- **Whole-repo failures** (for example the releases listing call fails): that repo is left out of the index for this build and the failure is reported.
+- **Either way the index is still deployed**, so one problem does not block updates to other packages. The run then **fails** (red) and lists what went wrong as annotations on the run page and in the job summary.
+
+A red run on its own does not mean the index is broken, but check the summary: a repo listed as missing means that package is absent from the live index until the next successful rebuild.
+
+The CLI exits with code `3` when the index was written but there were errors, `1` for startup errors (nothing written), and `0` otherwise.
+
+## Development
+
+```bash
+uv sync                                # install dependencies, including pytest
+uv run pytest                          # run the tests
+python -m gds_idea_pypi --output site/ --dry-run   # scan without writing or hashing
+```
+
 ### Keeping the schedule alive
 
 GitHub automatically disables scheduled workflows in public repos after 60 days without repository activity. To prevent this, scheduled runs also commit a date stamp (`keepalive.txt`) to an orphan `keepalive` branch, at most once a week. The branch shares no history with `main` and is never deployed.

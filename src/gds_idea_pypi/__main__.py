@@ -11,8 +11,12 @@ from pathlib import Path
 from .config import load_config
 from .github import discover_repos, get_import_names, get_releases, make_client
 from .index import generate_index, generate_landing_page
+from .report import has_failures, report_failures
 
 logger = logging.getLogger("gds_idea_pypi")
+
+# Index was written and is deployable, but some repos or assets had errors.
+PARTIAL_FAILURE_EXIT_CODE = 3
 
 
 def main() -> None:
@@ -86,6 +90,7 @@ def main() -> None:
 
     logger.info("Total repos to scan: %d", len(repos_to_scan))
     all_packages = []
+    failed_repos: list[str] = []
 
     for repo in sorted(repos_to_scan):
         logger.info("Scanning %s/%s ...", config.org, repo)
@@ -104,6 +109,7 @@ def main() -> None:
                 config.org,
                 repo,
             )
+            failed_repos.append(repo)
             continue
 
     # Report
@@ -130,6 +136,10 @@ def main() -> None:
     generate_landing_page(all_packages, args.output)
     logger.info("Index written to %s/simple/", args.output)
     logger.info("Landing page written to %s/index.html", args.output)
+
+    if has_failures(failed_repos, all_packages):
+        report_failures(config.org, failed_repos, all_packages)
+        sys.exit(PARTIAL_FAILURE_EXIT_CODE)
 
 
 if __name__ == "__main__":
