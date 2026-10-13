@@ -16,6 +16,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # GitHub disables scheduled workflows in public repos after 60 days without
+  # repository activity. Committing a date stamp to an orphan branch (at most
+  # weekly) keeps the repo active without touching the protected main branch.
+  keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Refresh keepalive branch
+        run: |
+          if git ls-remote --exit-code --heads origin keepalive > /dev/null; then
+            git fetch --depth=1 origin keepalive:keepalive
+            git checkout keepalive
+            last=$(git log -1 --format=%ct)
+            if [ $(( $(date +%s) - last )) -lt $(( 7 * 24 * 60 * 60 )) ]; then
+              echo "keepalive branch updated within the last 7 days; nothing to do"
+              exit 0
+            fi
+          else
+            git checkout --orphan keepalive
+            git rm -rf --quiet .
+          fi
+          date -u +%Y-%m-%d > keepalive.txt
+          git add keepalive.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keepalive $(cat keepalive.txt)"
+          git push origin keepalive
+
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
